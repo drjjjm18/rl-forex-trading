@@ -15,9 +15,6 @@ class TradeEnvironment(Env):
         self.current_step = 0
         self.max_steps = len(df) - 1
 
-        self.action_space = Discrete(3)
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
-
         self.initial_balance = initial_balance
         self.balance = initial_balance
         self.units_held = 0
@@ -25,12 +22,20 @@ class TradeEnvironment(Env):
         self.slippage = slippage
         self.rewards = []
         self.portfolio = []
-        self.columns = ['Close', '5_min_ma', '8_min_ma', '1_day_ma', '3_day_ma', '7_day_ma']
+        self.columns = self.df.columns
         self.previous_value = self.current_value
         self.log = log
 
+        self.action_space = Discrete(3)
+        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(len(self.columns),), dtype=np.float32)
+
+
     def reset(self):
         self.current_step = 0
+        self.units_held = 0
+        self.prev_units_held = 0
+        self.balance = self.initial_balance
+        self.previous_value = self.current_value
         return self._get_observation()
 
     def step(self, action):
@@ -41,14 +46,15 @@ class TradeEnvironment(Env):
                 pickle.dump(self.portfolio, f)
             return self._get_observation(), 0, True, {}
         
+        self.current_step += 1
         # Execute the action and get the next observation
         current_price = self.df['Close'].iloc[self.current_step]
         self._take_action(action, current_price)
-        reward = self._get_reward(current_price)
+        reward = self._get_reward()
         self.rewards.append(reward)
         self.portfolio.append(self.current_value)
-        self.current_step += 1
         next_observation = self._get_observation()
+
         # Update the previous units held for the next reward calculation
         self.prev_units_held = self.units_held
         self.previous_value = self.current_value
@@ -90,13 +96,13 @@ class TradeEnvironment(Env):
         observation = self.df.iloc[self.current_step][self.columns].values.astype(np.float32)
         return observation
 
-    def _get_reward(self, current_price):
+    def _get_reward(self):
         # Calculate the portfolio value at the current timestep
         portfolio_value = self.current_value
 
         # Calculate the change in portfolio value from the previous timestep
         prev_portfolio_value = self.previous_value
-        reward = self.current_value - self.previous_value
+        reward = portfolio_value - prev_portfolio_value
         if self.log:
             print(f'portfolio value: {portfolio_value}, prev value: {prev_portfolio_value}, reward: {reward}')
         return reward
