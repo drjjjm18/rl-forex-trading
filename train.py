@@ -1,5 +1,6 @@
 import os
 from argparse import ArgumentParser
+import pandas as pd
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
@@ -9,77 +10,64 @@ from tf_agents.policies import random_tf_policy, py_tf_eager_policy
 from tf_agents.utils import common
 from tf_agents.replay_buffers import tf_uniform_replay_buffer
 from tf_agents.drivers import dynamic_step_driver
+import yaml
 
 from environment import TradeEnvironment
-from user_agent import TradeAgent
-
-import pandas as pd
-
-
-def compute_avg_return(environment, policy, num_steps=None):
-
-    rewards = 0
-
-    if not num_steps:
-        num_steps = len(environment.envs[0].df)
-
-    time_step = environment.reset()
-    eps_step = 0
-
-    for i in range(num_steps):
-        action_step = policy.action(time_step)
-        time_step = environment.step(action_step.action)
-        eps_step += 1
-        rewards += time_step[1]
-
-        if time_step.is_last():
-            break
-
-    avg_return = rewards / num_steps
-#   avg_length = episode_length / num_episodes
-    
-    return environment.envs[0].current_value, avg_return
+from trade_agent import TradeAgent
+from utils import compute_avg_return
 
 
 if __name__ == "__main__":
 
-    ## ----------------------- Read parameters ------------------------- ##
+    ## ----------------------- Read parameters and config ------------------------- ##
 
     parser = ArgumentParser()
 
     parser.add_argument('-s', '--save_dir', required=False, default='model/', help='Directory to save the file')
     parser.add_argument('-f', '--file_path', required=True, help='Path to the file')
+    parser.add_argument('-t', '--train_config', default='config/train_config.yaml', help='Path to config yaml file')
 
     args = parser.parse_args()
     save_dir = args.save_dir
     file_path = args.file_path
+    train_config_path = args.train_config
 
+    try:
+        with open(train_config_path, 'r') as f:
+            train_config = yaml.safe_load(f)
+    except Exception as e:
+        raise(f'Failed to load train config, does yaml file {train_config_path} exist? \r\r Traceback: ', e)
+    
+    print('Loaded train config: ', train_config)
+    
+    ## ------------------------ Dataset -------------------------- ##
 
-    ## ------------------------ Configuration -------------------------- ##
     df = pd.read_csv(file_path)
 
-    # RL algorithm options
-    num_iterations = len(df) #
-    initial_collect_steps = 100
-    collect_steps_per_iteration = 1 
-    replay_buffer_max_length = 10000 # memory. Batch size chooses x random samples from this (?)
+    ## ------------------------ Configuration -------------------------- ##
 
-    batch_size = 42 # 
-    learning_rate = 1e-5
+    # RL algorithm options
+    num_iterations = len(df)
+    initial_collect_steps = train_config['initial_collect_steps']
+    collect_steps_per_iteration = train_config['collect_steps_per_iteration']
+    replay_buffer_max_length = train_config['replay_buffer_max_length'] # memory. Batch size chooses x random samples from this (?)
+
+    batch_size = train_config['replay_buffer_max_length']
+    learning_rate = train_config['learning_rate']
 
     # Logging and evaluation options
-    log_interval = 1000
-    num_eval_episodes = 1000
-    eval_interval = None
+    log_interval = train_config['log_interval']
+    num_eval_episodes = train_config['num_eval_episodes']
+    eval_interval = train_config['eval_interval']
     # QNet options
-    fc_layer_params = (256,128)
+    # fc_layer_params = (256,)
     # fc_layer_params = (1024, )
-    # fc_layer_params = (32, 16, 8)
-    start_epsilon = 0.3 # 
-    end_epsilon = 0. 
-    qnet_target_update_tau = 0.09
-    qnet_target_update_period = 1
-    discount_factor = 0.95
+    fc_layer_params = train_config['fc_layer_params']
+    start_epsilon = train_config['start_epsilon']
+    end_epsilon = train_config['end_epsilon']
+    qnet_target_update_tau = train_config['qnet_target_update_tau']
+    qnet_target_update_period = train_config['qnet_target_update_period']
+    discount_factor = train_config['discount_factor']
 
 
 
