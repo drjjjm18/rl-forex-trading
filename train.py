@@ -1,6 +1,7 @@
 import os
 from argparse import ArgumentParser
 import pandas as pd
+import pickle
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
@@ -68,6 +69,8 @@ if __name__ == "__main__":
     qnet_target_update_tau = train_config['qnet_target_update_tau']
     qnet_target_update_period = train_config['qnet_target_update_period']
     discount_factor = train_config['discount_factor']
+    epochs = train_config['epochs']
+    total_steps = epochs * num_iterations
 
 
 
@@ -92,7 +95,7 @@ if __name__ == "__main__":
     epsilon = tf.compat.v1.train.polynomial_decay(
         start_epsilon,
         train_step_counter,
-        num_iterations,
+        total_steps,
         end_learning_rate=end_epsilon
     )
 
@@ -132,51 +135,62 @@ if __name__ == "__main__":
     # (Optional) Optimize by wrapping some of the code in a graph using TF function.
     agent.train = common.function(agent.train)
 
-    # Reset the train step.
-    agent.train_step_counter.assign(0)
-
-    # Evaluate random poicy
-    val, avg_return = compute_avg_return(eval_env, random_policy, 100)
-    print(f"Random policy avg return is: {avg_return}, final value is {val}")
-
-    # Evaluate the agent's policy once before training.
-    val, avg_return = compute_avg_return(eval_env, agent.policy, 100)
-    print(f"Initial avg return is: {avg_return}, final value is {val}")
-    returns = [avg_return]
-
-    # Reset the environment.
-    time_step = train_env.reset()
-
-    # Create a driver to collect experience.
-    collect_driver = dynamic_step_driver.DynamicStepDriver(
-        train_env,
-        agent.collect_policy,
-        [replay_buffer.add_batch],
-        num_steps=collect_steps_per_iteration
-        )
+    losses = []
     
 
-    for i in range(num_iterations):
-        # Collect a few steps and save to the replay buffer.
-        time_step, _ = collect_driver.run(time_step)
+    for epoch in range(epochs):
 
-        # Sample a batch of data from the buffer and update the agent's network.
-        experience, unused_info = next(iterator)
+        # Reset the train step.
+        agent.train_step_counter.assign(0)
+
+        # Evaluate random poicy
+        val, avg_return = compute_avg_return(eval_env, random_policy, 100)
+        print(f"Random policy avg return is: {avg_return}, final value is {val}")
+
+        # Evaluate the agent's policy once before training.
+        val, avg_return = compute_avg_return(eval_env, agent.policy, 100)
+        print(f"Initial agent avg return is: {avg_return}, final value is {val}")
+        returns = [avg_return]
+
+        # Reset the environment.
+        time_step = train_env.reset()
+
+        # Create a driver to collect experience.
+        collect_driver = dynamic_step_driver.DynamicStepDriver(
+            train_env,
+            agent.collect_policy,
+            [replay_buffer.add_batch],
+            num_steps=collect_steps_per_iteration
+            )
         
-        train_loss = agent.train(experience).loss
 
-        step = agent.train_step_counter.numpy()
+        for i in range(num_iterations):
+            # Collect a few steps and save to the replay buffer.
+            time_step, _ = collect_driver.run(time_step)
 
-        if step % log_interval == 0:
-            print('step = {0}: \t loss = {1} \t value={2}'.format(step, train_loss, train_env.envs[0].current_value))
+            # Sample a batch of data from the buffer and update the agent's network.
+            experience, unused_info = next(iterator)
+            
+            train_loss = agent.train(experience).loss
 
-        if eval_interval and (step % eval_interval == 0):
-            portfolio, avg_rew = compute_avg_return(eval_env, agent.policy, num_eval_episodes)
-            print(f'Evaluating model: portfolio {portfolio}, avg_rew {avg_rew}')
-            # If best average return, save the model
-            if len(returns) == 0 or avg_rew > max(returns):
-                agent.save(save_dir)
-                print(f"Saved model to {save_dir}")
-            returns.append(avg_rew)
-    print('training complete')
-    print('value of portfolio: ', train_env.envs[0].current_value)
+            losses.append(train_loss.numpy())
+
+            step = agent.train_step_counter.numpy()
+
+            if step % log_interval == 0:
+                print('step = {0}: \t loss = {1} \t value={2}'.format(step, train_loss, train_env.envs[0].current_value))
+
+            if eval_interval and (step % eval_interval == 0):
+                portfolio, avg_rew = compute_avg_return(eval_env, agent.policy, num_eval_episodes)
+                print(f'Evaluating model: portfolio {portfolio}, avg_rew {avg_rew}')
+                # If best average return, save the model
+                if len(returns) == 0 or avg_rew > max(returns):
+                    agent.save(save_dir)
+                    print(f"Saved model to {save_dir}")
+                returns.append(avg_rew)
+        print('Epoch complete')
+        print(f'Epoch: {epoch+1}, value of portfolio: {train_env.envs[0].current_value}')
+    
+    print('Training complete.')
+    with open('training_loss.pkl', 'wb') as f:
+        pickle.dump(losses, f)

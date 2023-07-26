@@ -1,59 +1,57 @@
 from argparse import ArgumentParser
 import time
 import os
+import pandas as pd
+import pickle
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 from environment import TradeEnvironment
-from user_eval_fn import init, agent_predict
+from eval_fn import init, agent_predict
 
-
-def median(arr):
-    arr = sorted(arr)
-    return arr[len(arr)//2]
 
 if __name__ == "__main__":
     parser = ArgumentParser()
 
-    parser.add_argument('modelpath')
-    parser.add_argument('-n', '--num-episodes', default=100, type=int)
+    parser.add_argument('-m', '--model_path', required=False, default='model/', help='Directory to save the file')
+    parser.add_argument('-f', '--file_path', required=True, help='Path to the data')
+    parser.add_argument('-n', '--num_steps', default=1000, type=int)
+
+
     args = parser.parse_args()
+    model_path = args.model_path
+    file_path = args.file_path
+    df = pd.read_csv(file_path)
 
-    init(args.modelpath)
-    env = TradeEnvironment()
+    init(model_path)
+    env = TradeEnvironment(df)
 
-    scores = []
-    pred_times = []
-    step_times = []
-    eps_times = []
-    eps_lengths = []
+    log_interval = 100
+    rewards = 0
+    port = []
 
-    start_time = time.time()
+    is_done = False
+    eps_step = 0
 
-    for i in range(args.num_episodes):
-        obs = env.reset()
-        is_done = False
-        eps_steps = 0
-        
-        start_eps = time.time()
-        while not is_done:
-            start_pred = time.time()
-            action = agent_predict(obs)
-            pred_times.append(time.time() - start_pred)
-            start_step = time.time()
-            obs, _, is_done, _ = env.step(action)
-            step_times.append(time.time() - start_step)
-            eps_steps += 1
+    rewards = 0
 
-        scores.append(env.current_score)
-        eps_times.append(time.time() - start_eps)
-        eps_lengths.append(eps_steps)
+    time_step = env.reset()
+  
 
-    print(f"n_episodes: {args.num_episodes}")
-    print(f"avg_score: {float(sum(scores)) / len(scores):.2f}")
-    print(f"median_score: {median(scores)}")
-    print(f"avg_pred_time: {int(sum(pred_times) * 1e6)  // len(pred_times)}ns")
-    print(f"avg_step_time: {int(sum(step_times) * 1e6) // len(step_times)}ns")
-    print(f"avg_eps_time: {int(sum(eps_times) * 1e3) // len(eps_times)}ms")
-    print(f"avg_eps_steps: {int(sum(eps_lengths) // len(eps_lengths))}")
-    print(f"tot_time: {time.time() - start_time:.2f}s")
+    for i in range(args.num_steps):
+        action = agent_predict(time_step)
+        time_step, _, is_done, _ = env.step(action)
+        eps_step += 1
+        rewards += time_step[1]
+        port.append(env.current_value)
+
+        if is_done:
+            break
+        if i % log_interval == 0:
+                print('step = {0}: \t value={1}'.format(i, env.current_value))
+
+    avg_return = rewards / eps_step    
+    
+    print(f'Eval complete. Steps = {i+1}, value = {env.current_value}, avg reward = {avg_return}')
+    with open('eval_port.pkl', 'wb') as f:
+         pickle.dump(port, f)

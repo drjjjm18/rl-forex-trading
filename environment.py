@@ -27,7 +27,7 @@ class TradeEnvironment(Env):
         self.log = log
 
         self.action_space = Discrete(3)
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(len(self.columns),), dtype=np.float32)
+        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(len(self.columns)+2,), dtype=np.float32)
 
 
     def reset(self):
@@ -49,6 +49,9 @@ class TradeEnvironment(Env):
         self.current_step += 1
         # Execute the action and get the next observation
         current_price = self.df['Close'].iloc[self.current_step]
+        if current_price == 0:
+            return self._get_observation(), 0, False, {}
+
         self._take_action(action, current_price)
         reward = self._get_reward()
         self.rewards.append(reward)
@@ -94,6 +97,10 @@ class TradeEnvironment(Env):
     def _get_observation(self):
         # Get the current observation (next row of data) from the DataFrame
         observation = self.df.iloc[self.current_step][self.columns].values.astype(np.float32)
+        # Append the balance and units held to the observation
+        balance = np.array([self.balance], dtype=np.float32)
+        units_held = np.array([self.units_held], dtype=np.float32)
+        observation = np.concatenate([observation, balance, units_held])
         return observation
 
     def _get_reward(self):

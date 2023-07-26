@@ -33,6 +33,7 @@ df['3_day_ma'] = df['Close'].rolling('3D').mean()
 df['7_day_ma'] = df['Close'].rolling('7D').mean()
 df['RSI'] = calculate_rsi(df)
 df['RSI'] = df['RSI'].fillna(0)
+df = df[~df["Close"] == 0]
 
 columns_to_normalize = df.columns
 df[columns_to_normalize] = (df[columns_to_normalize] - df[columns_to_normalize].min()) / (df[columns_to_normalize].max() - df[columns_to_normalize].min())
