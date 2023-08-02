@@ -1,41 +1,52 @@
-import yfinance as yf
 from argparse import ArgumentParser
+from os import path
+
 import pandas as pd
+import yaml
+import yfinance as yf
 
-def calculate_rsi(data, window=14):
-    close_prices = data['Close']
-    delta = close_prices.diff()
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
+from utils import calculate_rsi
 
-    avg_gain = gain.rolling(window=window).mean()
-    avg_loss = loss.rolling(window=window).mean()
-
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
 
 parser = ArgumentParser()
-parser.add_argument('-t', '--tickers', required=True, help='stock to get data for')
-parser.add_argument('-i', '--interval', required=False, default='60m', help='data interval')
-parser.add_argument('-p', '--period', required=False, default='730d', help='period to get data for')
-parser.add_argument('-s', '--save_path', required=True, help='path to save data to')
+parser.add_argument('-s', '--save_path', required=False, default='data/', help='path to save data to')
+parser.add_argument('-c', '--config', required=False, default='config/data_config.yaml', help='path to load data config from')
 
 args = parser.parse_args()
-tickers = args.tickers
-interval = args.interval
-period = args.period
 save_path = args.save_path
+data_config_path = args.config
 
-df = yf.download(tickers=tickers, period=period, interval=interval)
-df['1_day_ma'] = df['Close'].rolling('1D').mean()
-df['3_day_ma'] = df['Close'].rolling('3D').mean()
-df['7_day_ma'] = df['Close'].rolling('7D').mean()
-df['RSI'] = calculate_rsi(df)
-df['RSI'] = df['RSI'].fillna(0)
-df = df[~df["Close"] == 0]
+try:
+    with open(data_config_path, 'r') as f:
+        config = yaml.safe_load(f)
 
-columns_to_normalize = df.columns
-df[columns_to_normalize] = (df[columns_to_normalize] - df[columns_to_normalize].min()) / (df[columns_to_normalize].max() - df[columns_to_normalize].min())
+    period = config['period']
+    interval = config['interval']
+    moving_averages = config['moving_averages']
+    calculate_rsi_var = config['calculate_rsi']
+    drop_close_equals_0 = config['drop_close_equals_0']
+except Exception as e:
+    print('failed to load config variables: ', e)
 
-df.to_csv(save_path, index=False)
+for ticker in config['tickers']:
+    df = yf.download(tickers=ticker, period=period, interval=interval)
+    if len(moving_averages) > 0:
+        for avg in moving_averages:
+            try:
+                df[f'{avg}_ma'] = df['Close'].rolling(avg).mean()
+            except Exception as e:
+                print(f'failed to add moving average {avg}', e)
+
+    if calculate_rsi_var:
+        df['RSI'] = calculate_rsi(df)
+        df['RSI'] = df['RSI'].fillna(0)
+
+    if config['normalise_columns']:
+        columns_to_normalize = df.columns
+        df[columns_to_normalize] = (df[columns_to_normalize] - df[columns_to_normalize].min()) / (df[columns_to_normalize].max() - df[columns_to_normalize].min())
+
+    if drop_close_equals_0:
+        df = df[~df["Close"] == 0]
+
+    ticker_save_path = path.join(save_path, ticker+'.csv')
+    df.to_csv(ticker_save_path, index=False)

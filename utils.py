@@ -19,3 +19,16 @@ def compute_avg_return(environment, policy, num_steps=None):
 
     avg_return = rewards / eps_step    
     return environment.envs[0].current_value, avg_return
+
+def calculate_rsi(data, window=14):
+    close_prices = data['Close']
+    delta = close_prices.diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+
+    avg_gain = gain.rolling(window=window).mean()
+    avg_loss = loss.rolling(window=window).mean()
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi

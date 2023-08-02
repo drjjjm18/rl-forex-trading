@@ -1,0 +1,16 @@
+ # Ticker options
+tickers:
+  - 'GBPUSD=X'
+interval: '60m'
+period: '730d'
+
+# Calculated fileds options
+moving_averages:
+  - '1D'
+  - '3D'
+  - '7D'
+calculate_rsi: True
+
+# Post processing options
+drop_close_equals_0: False
+normalise_columns: True
