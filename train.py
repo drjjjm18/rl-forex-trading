@@ -136,6 +136,8 @@ if __name__ == "__main__":
     agent.train = common.function(agent.train)
 
     losses = []
+
+    saved_model = False
     
 
     for epoch in range(epochs):
@@ -187,10 +189,14 @@ if __name__ == "__main__":
                 if len(returns) == 0 or avg_rew > max(returns):
                     agent.save(save_dir)
                     print(f"Saved model to {save_dir}")
+                    saved_model = True
                 returns.append(avg_rew)
         print('Epoch complete')
         print(f'Epoch: {epoch+1}, value of portfolio: {train_env.envs[0].current_value}')
     
     print('Training complete.')
+    if not saved_model:
+        agent.save(save_dir)
+        print(f"Saved model to {save_dir}")
     with open('training_loss.pkl', 'wb') as f:
         pickle.dump(losses, f)

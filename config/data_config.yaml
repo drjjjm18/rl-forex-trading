@@ -14,3 +14,4 @@ calculate_rsi: True
 # Post processing options
 drop_close_equals_0: False
 normalise_columns: True
+drop_volume: True

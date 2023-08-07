@@ -12,3 +12,7 @@ An environment to train RL trading models initially targeting forex
     - Configure train.py to loop through multiple datasets in training run given a list in config
 - Hyperparams:
     - enable tweaking of multiple hyper parameters over different training runs
+- Evaluation:
+    - Get some basic performance metrics calculated:
+        - max drawdown
+        

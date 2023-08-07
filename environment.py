@@ -22,7 +22,9 @@ class TradeEnvironment(Env):
         self.slippage = slippage
         self.rewards = []
         self.portfolio = []
-        self.columns = self.df.columns
+        self.columns = list(self.df.columns)
+        if 'Close' in self.columns:
+            self.columns.remove('Close')
         self.previous_value = self.current_value
         self.log = log
 
@@ -107,12 +109,12 @@ class TradeEnvironment(Env):
         # Calculate the portfolio value at the current timestep
         portfolio_value = self.current_value
 
-        # Calculate the change in portfolio value from the previous timestep
+        # Calculate the percentage change in portfolio value from the previous timestep
         prev_portfolio_value = self.previous_value
-        reward = portfolio_value - prev_portfolio_value
+        reward = (portfolio_value - prev_portfolio_value) / prev_portfolio_value * 100.0
         if self.log:
             print(f'portfolio value: {portfolio_value}, prev value: {prev_portfolio_value}, reward: {reward}')
-        return reward
+        return reward 
     
     @property
     def current_value(self):
