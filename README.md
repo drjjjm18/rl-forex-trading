@@ -16,3 +16,19 @@ An environment to train RL trading models initially targeting forex
     - Get some basic performance metrics calculated:
         - max drawdown
         
+## How to run
+
+get data:
+```
+python data.py -c <path to config yaml> -s <dir to save output files>
+```
+
+train an agent:
+```
+python train.py -s <dir to save models to> -f <path to training data> -c <path to train config yaml>
+```
+
+evaluate an agent:
+```
+python evaluated_agent.py -m <dir model is saved in> -f <path to evaluation data> -n <number of evaluation steps>
+```
