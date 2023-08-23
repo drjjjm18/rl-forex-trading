@@ -1,6 +1,8 @@
  # Ticker options
 tickers:
   - 'GBPUSD=X'
+  - 'GBPEUR=X'
+  - 'GBPJPY=X'
 interval: '60m'
 period: '730d'
 

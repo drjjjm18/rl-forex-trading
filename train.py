@@ -25,12 +25,12 @@ if __name__ == "__main__":
     parser = ArgumentParser()
 
     parser.add_argument('-s', '--save_dir', required=False, default='model/', help='Directory to save the file')
-    parser.add_argument('-f', '--file_path', required=True, help='Path to the file')
+    # parser.add_argument('-f', '--file_path', required=True, help='Path to the file')
     parser.add_argument('-t', '--train_config', default='config/train_config.yaml', help='Path to config yaml file')
 
     args = parser.parse_args()
     save_dir = args.save_dir
-    file_path = args.file_path
+    # file_path = args.file_path
     train_config_path = args.train_config
 
     try:
@@ -43,7 +43,19 @@ if __name__ == "__main__":
     
     ## ------------------------ Dataset -------------------------- ##
 
-    df = pd.read_csv(file_path)
+    # df = pd.read_csv(file_path)
+    # Training data
+    training_data_paths = train_config['training_data']
+    dfs = [pd.read_csv(path) for path in training_data_paths]
+
+    df = pd.concat(dfs)
+    df = df.reset_index()
+    print('------- data -------')
+    
+    print(df.head())
+    print(df.tail())
+    print(df.info())
+    print('------- data -------')
 
     ## ------------------------ Configuration -------------------------- ##
 
@@ -72,8 +84,6 @@ if __name__ == "__main__":
     epochs = train_config['epochs']
     total_steps = epochs * num_iterations
 
-
-
     ## ---------------- Create train and test environment ---------------- ##
     train_py_env = GymWrapper(TradeEnvironment(df))
     train_env = tf_py_environment.TFPyEnvironment(train_py_env)
@@ -99,8 +109,7 @@ if __name__ == "__main__":
         end_learning_rate=end_epsilon
     )
 
-
-    agent = TradeAgent(train_env, learning_rate, fc_layer_params, discount_factor, epsilon, qnet_target_update_tau, qnet_target_update_period, train_step_counter)
+    agent = TradeAgent(train_env.action_spec(), train_env.time_step_spec(), learning_rate, fc_layer_params, discount_factor, epsilon, qnet_target_update_tau, qnet_target_update_period, train_step_counter)
     agent.initialize()
 
     print("DQN agent network summary:")
@@ -135,7 +144,7 @@ if __name__ == "__main__":
     # (Optional) Optimize by wrapping some of the code in a graph using TF function.
     agent.train = common.function(agent.train)
 
-    losses = []
+    losses = []    
 
     saved_model = False
     
@@ -166,7 +175,7 @@ if __name__ == "__main__":
             )
         
 
-        for i in range(num_iterations):
+        for i in range(len(df)):
             # Collect a few steps and save to the replay buffer.
             time_step, _ = collect_driver.run(time_step)
 

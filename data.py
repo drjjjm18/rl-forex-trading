@@ -2,8 +2,6 @@ from argparse import ArgumentParser
 from datetime import datetime
 from os import path
 
-import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 import yaml
 import yfinance as yf
 

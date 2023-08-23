@@ -22,16 +22,20 @@ def dense_layer(num_units: int):
 
 
 class TradeAgent(DqnAgent):
+    """
+    An RL trading agent class
+    """
     def __init__(self,
-                 env: TFEnvironment,
-                 learning_rate: float = 1e-4,
-                 fc_layer_params: Tuple[int] = (64, 32, 16),
+                 action_spec, # a representation of the actions the agent can make
+                 time_step_spec, # a representation of the information in the environment each 'step' (e.g. observation, reward, action etc)
+                 learning_rate: float = 1e-4, 
+                 fc_layer_params: Tuple[int] = (64, 32, 16), # the neurons in each layer of the agent's neural network
                  discount_factor: float = 0.99,
                  epsilon: float = 0.3,
                  target_update_tau: float = 0.01,
                  target_update_period: int = 1,
                  train_step_counter: Optional[tf.Variable] = None):
-        action_tensor_spec = tensor_spec.from_spec(env.action_spec())
+        action_tensor_spec = tensor_spec.from_spec(action_spec)
         num_actions = action_tensor_spec.maximum - action_tensor_spec.minimum + 1
         # QNetwork consists of a sequence of Dense layers followed by a dense layer
         # with `num_actions` units to generate one q_value per available action as
@@ -52,8 +56,8 @@ class TradeAgent(DqnAgent):
             train_step_counter = tf.Variable(0)
 
         super().__init__(
-            env.time_step_spec(),
-            env.action_spec(),
+            time_step_spec,
+            action_spec,
             q_network=q_net,
             epsilon_greedy=epsilon,
             optimizer=optimizer,

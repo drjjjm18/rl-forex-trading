@@ -9,6 +9,9 @@ from gym.spaces import Discrete, Box
     
 
 class TradeEnvironment(Env):
+    """
+    A gym environment to simulate forex trading.
+    """
 
     def __init__(self, df, initial_balance=1000, slippage=0.001, log=False):
         self.df = df
@@ -54,7 +57,9 @@ class TradeEnvironment(Env):
         if current_price == 0:
             return self._get_observation(), 0, False, {}
 
-        self._take_action(action, current_price)
+        end_training = self._take_action(action, current_price)
+        if end_training:
+            self._get_observation(), 1, True, {}
         reward = self._get_reward()
         self.rewards.append(reward)
         self.portfolio.append(self.current_value)
@@ -71,7 +76,7 @@ class TradeEnvironment(Env):
             print(action, current_price)
         if action == 1:  # Buy
             if self.balance <= 0:
-                return  # Can't buy with zero or negative balance
+                return False # Can't buy with zero or negative balance
 
             max_units = self.balance // current_price
             units_to_buy = max_units
@@ -81,12 +86,15 @@ class TradeEnvironment(Env):
                 units_to_buy = int(self.balance // ((1 + self.slippage) * current_price))
                 cost = (1 + self.slippage) * units_to_buy * current_price
 
+            if units_to_buy <=0:
+                print('Balance too low to buy any units')
+                return True
             self.balance -= cost
             self.units_held += units_to_buy
         
         elif action == 2:  # Sell
             if self.units_held <= 0:
-                return  # Can't sell with zero or negative units_held
+                return False # Can't sell with zero or negative units_held
 
             units_to_sell = self.units_held
             revenue = (1 - self.slippage) * units_to_sell * current_price
@@ -95,6 +103,7 @@ class TradeEnvironment(Env):
             self.units_held -= units_to_sell
         if self.log:
             print(f'balance: {self.balance}, units held: {self.units_held}, value: {self.current_value}')
+        return False
 
     def _get_observation(self):
         # Get the current observation (next row of data) from the DataFrame

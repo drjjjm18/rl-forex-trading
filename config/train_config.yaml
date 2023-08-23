@@ -22,3 +22,9 @@ discount_factor: 0.95
 
 # Training run options
 epochs: 3
+
+# Training data
+training_data:
+  - "data/GBPEUR=X_08_08_23.csv"
+  - "data/GBPUSD=X_08_08_23.csv"
+  - "data/GBPJPY=X_08_08_23.csv"

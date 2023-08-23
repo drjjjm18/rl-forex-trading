@@ -3,4 +3,4 @@ tf-agents==0.17.0
 pandas
 yfinance
 pyyaml
-scikit-learn
+notebook
